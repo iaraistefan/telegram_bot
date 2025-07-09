@@ -1,5 +1,2 @@
-Flask
-requests
 telebot
 yfinance
-
