@@ -1,10 +1,12 @@
 services:
-  - type: web
-    name: telegram-bot
-    env: python
-    plan: free
-    buildCommand: pip install -r requirements.txt
+  - type: worker
+    name: telegram-finance-bot
+    runtime: python
+    buildCommand: ""
     startCommand: python bot.py
     envVars:
-      - key: BOT_TOKEN
-        value: 8164160967:AAGt8kUeFe1--8al4Nw8LbsiXLzBCWhjHrE
+      - key: TELEGRAM_TOKEN
+        value: 8111564136:AAFwJaaTiG7VBAoU1GTeoOf5sAqkwiSIfgo
+      - key: CANAL_ID
+        value: -1002751312917
+
