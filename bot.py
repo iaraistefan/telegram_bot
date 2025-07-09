@@ -1,48 +1,42 @@
-from flask import Flask, request
-import requests
+import telebot
 import yfinance as yf
+import time
 import os
+import random
 
-app = Flask(__name__)
+# 🛡️ Token și canal ID din variabile de mediu (pentru cloud)
+TOKEN = os.getenv("TELEGRAM_TOKEN")
+CANAL_ID = int(os.getenv("CANAL_ID"))
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
+bot = telebot.TeleBot(TOKEN)
 
-def get_momentum(symbol):
-    ticker = f"{symbol}=X" if not symbol.endswith("=X") else symbol
-    data = yf.download(ticker, interval="1m", period="1d", progress=False)
-    data['momentum'] = data['Close'] - data['Close'].shift(10)
-    momentum = data['momentum'].iloc[-1].item()
-    close = data['Close'].iloc[-1].item()
-    signal = "BUY" if momentum > 0 else "SELL" if momentum < 0 else "NEUTRAL"
-    return f"📈 {symbol} (1m)\nSignal: {signal}\nMomentum: {momentum:.5f}\nClose: {close:.5f}"
+# 📊 Activul analizat
+ACTIV = 'EURUSD=X'  # Cod Yahoo Finance pentru EUR/USD
 
-@app.route(f"/{BOT_TOKEN}", methods=["POST"])
-def webhook():
-    data = request.get_json()
-    chat_id = data["message"]["chat"]["id"]
-    text = data["message"].get("text", "")
+def genereaza_semnal():
+    try:
+        data = yf.download(tickers=ACTIV, period="1d", interval="1m")
+        if data.empty:
+            return None
 
-    if text.startswith("/check"):
-        parts = text.split()
-        if len(parts) == 2:
-            symbol = parts[1].upper()
-            try:
-                msg = get_momentum(symbol)
-            except Exception as e:
-                msg = f"⚠️ Eroare la analiză: {e}"
+        last_price = data['Close'][-1]
+        prev_price = data['Close'][-2]
+
+        directie = "UP" if last_price > prev_price else "DOWN"
+        expirare = random.choice([1, 2, 3])
+        return f"EUR/USD {directie} {expirare}m"
+    except:
+        return None
+
+def trimite_semnale():
+    while True:
+        semnal = genereaza_semnal()
+        if semnal:
+            bot.send_message(CANAL_ID, semnal)
+            print(f"📤 Semnal trimis: {semnal}")
         else:
-            msg = "❗ Folosește comanda astfel: /check EURUSD"
-    elif text == "/start":
-        msg = "👋 Salut! Trimite /check EURUSD pentru semnal Momentum."
-    elif text == "/help":
-        msg = "📘 Comenzi disponibile:\n/check EURUSD – semnal Momentum\n/start – bun venit\n/help – ajutor"
-    else:
-        msg = "❓ Comandă necunoscută. Trimite /help."
+            print("⚠️ Eroare la generarea semnalului.")
+        time.sleep(300)  # Așteaptă 5 minute
 
-    requests.post(f"{API_URL}/sendMessage", json={"chat_id": chat_id, "text": msg})
-    return {"ok": True}
-
-@app.route("/", methods=["GET"])
-def home():
-    return "Botul rulează! ✅"
+# ▶️ Pornim automat
+trimite_semnale()
